@@ -43,6 +43,16 @@ public class PropiedadAlquilerVenta extends Propiedad implements Alquilable, Ven
     }
 
     @Override
+    public void rescindirAlquiler() {
+        if (!this.alquilada) {
+            throw new IllegalStateException("La propiedad no tiene un alquiler activo para rescindir.");
+        }
+        this.alquilada = false;
+        this.inquilino = null;
+        this.mesesContrato = 0;
+    }
+
+    @Override
     public boolean estaAlquilada() {
         return alquilada;
     }

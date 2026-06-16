@@ -102,6 +102,8 @@ public class DatabaseManager {
             "    fecha_inicio TEXT NOT NULL," +
             "    duracion_meses INTEGER NOT NULL," +
             "    monto_mensual REAL NOT NULL," +
+            "    fecha_rescision TEXT DEFAULT NULL," +
+            "    estado TEXT DEFAULT 'ACTIVO'," +
             "    FOREIGN KEY (id_propiedad) REFERENCES propiedades_alquiler(id_propiedad)," +
             "    FOREIGN KEY (id_inquilino) REFERENCES clientes(id_cliente)" +
             ");",
@@ -124,6 +126,7 @@ public class DatabaseManager {
                 for (String ddl : ddls) {
                     stmt.execute(ddl);
                 }
+                asegurarColumnasRescisionContratos(conn);
                 conn.commit();
                 System.out.println("Tablas creadas/verificadas exitosamente.");
             } catch (SQLException e) {
@@ -273,6 +276,31 @@ public class DatabaseManager {
         }
     }
 
+    private void asegurarColumnasRescisionContratos(Connection conn) throws SQLException {
+        if (!existeColumna(conn, "contratos_alquiler", "fecha_rescision")) {
+            try (Statement stmt = conn.createStatement()) {
+                stmt.execute("ALTER TABLE contratos_alquiler ADD COLUMN fecha_rescision TEXT DEFAULT NULL");
+            }
+        }
+        if (!existeColumna(conn, "contratos_alquiler", "estado")) {
+            try (Statement stmt = conn.createStatement()) {
+                stmt.execute("ALTER TABLE contratos_alquiler ADD COLUMN estado TEXT DEFAULT 'ACTIVO'");
+            }
+        }
+    }
+
+    private boolean existeColumna(Connection conn, String tabla, String columna) throws SQLException {
+        try (Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery("PRAGMA table_info(" + tabla + ")")) {
+            while (rs.next()) {
+                if (columna.equals(rs.getString("name"))) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     /**
      * Carga todas las propiedades de la base de datos reconstruyendo su jerarquía polimórfica (LSP).
      */
@@ -280,7 +308,7 @@ public class DatabaseManager {
         List<Propiedad> lista = new ArrayList<>();
         String sql = "SELECT p.id_propiedad, p.direccion, p.superficie, prop.nombre AS propietario, " +
                      "       pa.precio_alquiler, pa.esta_alquilada, cli_alq.nombre AS inquilino, " +
-                     "       (SELECT duracion_meses FROM contratos_alquiler WHERE id_propiedad = p.id_propiedad ORDER BY id_contrato DESC LIMIT 1) AS meses, " +
+                     "       (SELECT duracion_meses FROM contratos_alquiler WHERE id_propiedad = p.id_propiedad AND estado = 'ACTIVO' ORDER BY id_contrato DESC LIMIT 1) AS meses, " +
                      "       pv.precio_venta, pv.esta_vendida, cli_vta.nombre AS comprador " +
                      "FROM propiedades p " +
                      "JOIN propietarios prop ON p.id_propietario = prop.id_propietario " +
@@ -369,6 +397,42 @@ public class DatabaseManager {
             }
         } catch (SQLException e) {
             System.err.println("Error al registrar alquiler en base de datos: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Registra la rescision de un alquiler activo y deja la propiedad disponible nuevamente.
+     */
+    public void registrarRescisionAlquiler(int idPropiedad) {
+        try (Connection conn = conectar()) {
+            conn.setAutoCommit(false);
+            try {
+                String updContrato = "UPDATE contratos_alquiler " +
+                        "SET fecha_rescision = date('now'), estado = 'RESCINDIDO' " +
+                        "WHERE id_contrato = (" +
+                        "    SELECT id_contrato FROM contratos_alquiler " +
+                        "    WHERE id_propiedad = ? AND estado = 'ACTIVO' " +
+                        "    ORDER BY id_contrato DESC LIMIT 1" +
+                        ")";
+                try (PreparedStatement ps = conn.prepareStatement(updContrato)) {
+                    ps.setInt(1, idPropiedad);
+                    ps.executeUpdate();
+                }
+
+                String updAlquiler = "UPDATE propiedades_alquiler SET esta_alquilada = 0, id_inquilino_actual = NULL WHERE id_propiedad = ?";
+                try (PreparedStatement ps = conn.prepareStatement(updAlquiler)) {
+                    ps.setInt(1, idPropiedad);
+                    ps.executeUpdate();
+                }
+
+                conn.commit();
+            } catch (SQLException e) {
+                conn.rollback();
+                throw e;
+            }
+        } catch (SQLException e) {
+            System.err.println("Error al registrar rescision de alquiler en base de datos: " + e.getMessage());
             e.printStackTrace();
         }
     }
@@ -498,7 +562,8 @@ public class DatabaseManager {
         }
 
         System.out.println("\n--- TABLA: contratos_alquiler ---");
-        String sqlContratos = "SELECT ca.id_contrato, p.direccion, c.nombre AS inquilino, ca.fecha_inicio, ca.duracion_meses, ca.monto_mensual " +
+        String sqlContratos = "SELECT ca.id_contrato, p.direccion, c.nombre AS inquilino, ca.fecha_inicio, ca.duracion_meses, " +
+                             "ca.monto_mensual, ca.fecha_rescision, ca.estado " +
                              "FROM contratos_alquiler ca " +
                              "JOIN propiedades p ON ca.id_propiedad = p.id_propiedad " +
                              "JOIN clientes c ON ca.id_inquilino = c.id_cliente";
@@ -506,9 +571,10 @@ public class DatabaseManager {
              Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery(sqlContratos)) {
             while (rs.next()) {
-                System.out.printf("ID Contrato: %d | Propiedad: %s | Inquilino: %s | Inicio: %s | Duración: %d meses | Alquiler: $%.2f/mes\n",
+                System.out.printf("ID Contrato: %d | Propiedad: %s | Inquilino: %s | Inicio: %s | Duración: %d meses | Alquiler: $%.2f/mes | Estado: %s | Rescisión: %s\n",
                         rs.getInt("id_contrato"), rs.getString("direccion"), rs.getString("inquilino"),
-                        rs.getString("fecha_inicio"), rs.getInt("duracion_meses"), rs.getDouble("monto_mensual"));
+                        rs.getString("fecha_inicio"), rs.getInt("duracion_meses"), rs.getDouble("monto_mensual"),
+                        rs.getString("estado"), rs.getString("fecha_rescision"));
             }
         } catch (SQLException e) {
             System.err.println("Error al consultar contratos_alquiler: " + e.getMessage());
@@ -537,7 +603,7 @@ public class DatabaseManager {
      * Elimina el archivo físico de la base de datos (utilizado principalmente para reiniciar pruebas).
      */
     public static void eliminarBaseDeDatosExistente() {
-        File f = new File("tp3/gestion_inmobiliaria.db");
+        File f = new File("gestion_inmobiliaria.db");
         if (f.exists()) {
             if (f.delete()) {
                 System.out.println(">>> Base de datos antigua eliminada para realizar una nueva simulación limpia.");

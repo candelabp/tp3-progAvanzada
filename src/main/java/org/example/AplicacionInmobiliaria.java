@@ -60,6 +60,12 @@ public class AplicacionInmobiliaria {
             procesador.procesarAlquiler(duplexMixto, "Candela Puerta", 12);
         }
 
+        System.out.println("--- PROCESANDO RESCISION DE ALQUILER ---");
+        if (deptoAlquiler != null) {
+            // Al estar modelado en Alquilable, cualquier propiedad alquilable puede rescindir su contrato activo
+            procesador.procesarRescisionAlquiler(deptoAlquiler);
+        }
+
         System.out.println("--- PROCESANDO TRANSACCIONES DE VENTA ---");
         if (casaVenta != null) {
             // casaVenta implementa Vendible, es seguro pasarlo
