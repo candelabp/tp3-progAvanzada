@@ -19,7 +19,7 @@ dependencies {
 }
 
 application {
-    mainClass = 'org.example.AplicacionInmobiliaria'
+    mainClass = 'org.example.AplicacionInmobiliariaGUI'
 }
 
 test {

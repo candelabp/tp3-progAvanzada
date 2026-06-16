@@ -363,6 +363,63 @@ public class DatabaseManager {
     }
 
     /**
+     * Registra una propiedad nueva y sus especializaciones de alquiler y/o venta.
+     */
+    public int registrarPropiedad(String direccion, double superficie, String nombrePropietario,
+                                  Double precioAlquiler, Double precioVenta) throws SQLException {
+        if (precioAlquiler == null && precioVenta == null) {
+            throw new IllegalArgumentException("La propiedad debe ser de alquiler, venta o mixta.");
+        }
+
+        try (Connection conn = conectar()) {
+            conn.setAutoCommit(false);
+            try {
+                int idPropietario = obtenerOCrearPropietario(conn, nombrePropietario);
+                int idPropiedad;
+
+                String insPropiedad = "INSERT INTO propiedades (direccion, superficie, id_propietario) VALUES (?, ?, ?)";
+                try (PreparedStatement ps = conn.prepareStatement(insPropiedad, Statement.RETURN_GENERATED_KEYS)) {
+                    ps.setString(1, direccion);
+                    ps.setDouble(2, superficie);
+                    ps.setInt(3, idPropietario);
+                    ps.executeUpdate();
+
+                    try (ResultSet keys = ps.getGeneratedKeys()) {
+                        if (!keys.next()) {
+                            throw new SQLException("No se pudo obtener el ID de la propiedad creada.");
+                        }
+                        idPropiedad = keys.getInt(1);
+                    }
+                }
+
+                if (precioAlquiler != null) {
+                    String insAlquiler = "INSERT INTO propiedades_alquiler (id_propiedad, precio_alquiler, esta_alquilada, id_inquilino_actual) VALUES (?, ?, 0, NULL)";
+                    try (PreparedStatement ps = conn.prepareStatement(insAlquiler)) {
+                        ps.setInt(1, idPropiedad);
+                        ps.setDouble(2, precioAlquiler);
+                        ps.executeUpdate();
+                    }
+                }
+
+                if (precioVenta != null) {
+                    String insVenta = "INSERT INTO propiedades_venta (id_propiedad, precio_venta, esta_vendida, id_comprador) VALUES (?, ?, 0, NULL)";
+                    try (PreparedStatement ps = conn.prepareStatement(insVenta)) {
+                        ps.setInt(1, idPropiedad);
+                        ps.setDouble(2, precioVenta);
+                        ps.executeUpdate();
+                    }
+                }
+
+                conn.commit();
+                return idPropiedad;
+            } catch (SQLException | RuntimeException e) {
+                conn.rollback();
+                throw e;
+            }
+        }
+    }
+
+    /**
      * Registra un nuevo contrato de alquiler en la base de datos.
      */
     public void registrarAlquiler(int idPropiedad, String nombreInquilino, int meses, double montoAlquiler) {
@@ -538,6 +595,67 @@ public class DatabaseManager {
             }
         }
         throw new SQLException("No se pudo obtener ni crear el propietario.");
+    }
+
+    /**
+     * Devuelve el historial de la base de datos en formato de texto para mostrarlo en la interfaz grafica.
+     */
+    public String obtenerHistorialComoTexto() {
+        StringBuilder historial = new StringBuilder();
+        historial.append("PROPIETARIOS\n");
+        historial.append("============\n");
+
+        try (Connection conn = conectar();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery("SELECT * FROM propietarios")) {
+            while (rs.next()) {
+                historial.append(String.format("ID: %d | Nombre: %s | Tel: %s | Email: %s%n",
+                        rs.getInt("id_propietario"), rs.getString("nombre"),
+                        rs.getString("telefono"), rs.getString("email")));
+            }
+        } catch (SQLException e) {
+            historial.append("Error al consultar propietarios: ").append(e.getMessage()).append("\n");
+        }
+
+        historial.append("\nCONTRATOS DE ALQUILER\n");
+        historial.append("=====================\n");
+        String sqlContratos = "SELECT ca.id_contrato, p.direccion, c.nombre AS inquilino, ca.fecha_inicio, ca.duracion_meses, " +
+                             "ca.monto_mensual, ca.fecha_rescision, ca.estado " +
+                             "FROM contratos_alquiler ca " +
+                             "JOIN propiedades p ON ca.id_propiedad = p.id_propiedad " +
+                             "JOIN clientes c ON ca.id_inquilino = c.id_cliente";
+        try (Connection conn = conectar();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sqlContratos)) {
+            while (rs.next()) {
+                historial.append(String.format("ID Contrato: %d | Propiedad: %s | Inquilino: %s | Inicio: %s | Duracion: %d meses | Alquiler: $%.2f/mes | Estado: %s | Rescision: %s%n",
+                        rs.getInt("id_contrato"), rs.getString("direccion"), rs.getString("inquilino"),
+                        rs.getString("fecha_inicio"), rs.getInt("duracion_meses"), rs.getDouble("monto_mensual"),
+                        rs.getString("estado"), rs.getString("fecha_rescision")));
+            }
+        } catch (SQLException e) {
+            historial.append("Error al consultar contratos_alquiler: ").append(e.getMessage()).append("\n");
+        }
+
+        historial.append("\nTRANSACCIONES DE VENTA\n");
+        historial.append("======================\n");
+        String sqlVentas = "SELECT tv.id_transaccion, p.direccion, c.nombre AS comprador, tv.fecha_venta, tv.monto_final " +
+                           "FROM transacciones_venta tv " +
+                           "JOIN propiedades p ON tv.id_propiedad = p.id_propiedad " +
+                           "JOIN clientes c ON tv.id_comprador = c.id_cliente";
+        try (Connection conn = conectar();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sqlVentas)) {
+            while (rs.next()) {
+                historial.append(String.format("ID Transaccion: %d | Propiedad: %s | Comprador: %s | Fecha: %s | Monto: $%.2f%n",
+                        rs.getInt("id_transaccion"), rs.getString("direccion"), rs.getString("comprador"),
+                        rs.getString("fecha_venta"), rs.getDouble("monto_final")));
+            }
+        } catch (SQLException e) {
+            historial.append("Error al consultar transacciones_venta: ").append(e.getMessage()).append("\n");
+        }
+
+        return historial.toString();
     }
 
     /**
