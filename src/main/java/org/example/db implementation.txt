@@ -1,0 +1,59 @@
+Implementation Plan: Implement Database for TP3 (LSP)
+This plan outlines the implementation of the relational database schema described in
+informe_lsp.md
+ inside the tp3 project. We will use SQLite as the database engine because it is serverless, zero-configuration, and stores the database in a local file (tp3/gestion_inmobiliaria.db), making it 100% portable for verification.
+
+User Review Required
+IMPORTANT
+
+Database Choice: We propose SQLite because it does not require a running server (like MySQL), which makes running and testing the project on your machine seamless.
+Driver Dependency: We will download the SQLite JDBC driver jar (sqlite-jdbc-3.36.0.3.jar) and place it in a lib/ directory inside the project. We will update the IntelliJ .iml file so that it is included in your classpath.
+Foreign Key Enforcement: In SQLite, foreign keys are disabled by default. We will enable them dynamically upon establishing a connection by running PRAGMA foreign_keys = ON;.
+Proposed Changes
+Database Integration
+[NEW]
+DatabaseManager.java
+We will create a singleton class DatabaseManager in package practico1.tp3 that:
+
+Connects to jdbc:sqlite:tp3/gestion_inmobiliaria.db.
+Initializes the tables according to the Class Table Inheritance schema in the markdown (adapted to SQLite SQL syntax).
+Provides DAO methods to:
+Check if the database has data; if not, seed it with the initial owners, clients, and properties.
+Load all properties from the database (reconstructing PropiedadAlquiler, PropiedadVenta, and PropiedadAlquilerVenta from the database tables using JOINs).
+Record rental contracts (saving to contratos_alquiler and updating propiedades_alquiler).
+Record sales transactions (saving to transacciones_venta, updating propiedades_venta, and updating the owner in propiedades).
+Code Adjustments
+[MODIFY]
+AplicacionInmobiliaria.java
+We will modify the main application to:
+
+Initialize the database schema and seed data on startup.
+Load the three initial properties directly from the database instead of hardcoding their construction.
+Delegate transaction execution to ProcesadorTransacciones.
+Query and print the final database tables (e.g., showing the contracts and transactions tables contents) to visually verify that data was successfully stored in the SQLite file.
+[MODIFY]
+ProcesadorTransacciones.java
+We will update procesarAlquiler and procesarVenta so that upon successful in-memory operation, they call DatabaseManager to persist the changes (contracts and sales) in the database.
+
+[MODIFY]
+ACONCAGUA-programacionAvanzada.iml
+We will modify the module file to include the downloaded SQLite JDBC jar in the project's dependencies, so it compiles and runs correctly in IntelliJ.
+
+Verification Plan
+Automated Tests / Execution
+We will verify the implementation by running:
+
+Create the lib/ directory and download the SQLite JDBC driver jar.
+Compile all files including the lib jar:
+powershell
+
+javac -cp "lib/*" tp3/*.java -d out
+Run the application:
+powershell
+
+java -cp "lib/*;out" practico1.tp3.AplicacionInmobiliaria
+Verify that:
+tp3/gestion_inmobiliaria.db file is created.
+The output displays successful DB connection, schema creation, and seeding.
+The transactions update the DB tables (propiedades, propiedades_alquiler, propiedades_venta, contratos_alquiler, transacciones_venta).
+The final print query displays correct relationships and updated fields.
