@@ -11,6 +11,9 @@ public class PropiedadAlquiler extends Propiedad implements Alquilable {
     private String inquilino;
     private int mesesContrato;
 
+    /**
+     * Crea una propiedad destinada solo a alquiler, inicialmente disponible.
+     */
     public PropiedadAlquiler(int id, String direccion, double superficie, String propietario, double precioAlquiler) {
         super(id, direccion, superficie, propietario);
         this.precioAlquiler = precioAlquiler;
@@ -26,6 +29,7 @@ public class PropiedadAlquiler extends Propiedad implements Alquilable {
 
     @Override
     public void alquilar(String inquilino, int mesesContrato) {
+        // La regla de negocio impide iniciar otro contrato si ya existe uno activo.
         if (this.alquilada) {
             throw new IllegalStateException("La propiedad ya se encuentra alquilada a " + this.inquilino);
         }
@@ -36,6 +40,7 @@ public class PropiedadAlquiler extends Propiedad implements Alquilable {
 
     @Override
     public void rescindirAlquiler() {
+        // Solo se puede rescindir cuando hay un contrato vigente.
         if (!this.alquilada) {
             throw new IllegalStateException("La propiedad no tiene un alquiler activo para rescindir.");
         }

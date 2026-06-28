@@ -11,6 +11,9 @@ public abstract class Propiedad {
     private double superficie;
     private String propietario;
 
+    /**
+     * Inicializa los datos comunes que comparten todas las especializaciones de propiedad.
+     */
     public Propiedad(int id, String direccion, double superficie, String propietario) {
         this.id = id;
         this.direccion = direccion;

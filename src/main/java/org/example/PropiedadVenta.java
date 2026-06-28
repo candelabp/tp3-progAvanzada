@@ -8,6 +8,9 @@ public class PropiedadVenta extends Propiedad implements Vendible {
     private boolean vendida;
     private String comprador;
 
+    /**
+     * Crea una propiedad destinada solo a venta, inicialmente disponible.
+     */
     public PropiedadVenta(int id, String direccion, double superficie, String propietario, double precioVenta) {
         super(id, direccion, superficie, propietario);
         this.precioVenta = precioVenta;
@@ -22,6 +25,7 @@ public class PropiedadVenta extends Propiedad implements Vendible {
 
     @Override
     public void vender(String comprador) {
+        // La venta es una operación única: una propiedad vendida no vuelve a venderse desde este flujo.
         if (this.vendida) {
             throw new IllegalStateException("La propiedad ya se encuentra vendida a " + this.comprador);
         }

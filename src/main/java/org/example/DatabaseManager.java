@@ -276,6 +276,9 @@ public class DatabaseManager {
         }
     }
 
+    /**
+     * Asegura que bases creadas con versiones anteriores tengan las columnas de rescisión.
+     */
     private void asegurarColumnasRescisionContratos(Connection conn) throws SQLException {
         if (!existeColumna(conn, "contratos_alquiler", "fecha_rescision")) {
             try (Statement stmt = conn.createStatement()) {
@@ -289,6 +292,9 @@ public class DatabaseManager {
         }
     }
 
+    /**
+     * Consulta la estructura de una tabla SQLite para saber si una columna ya existe.
+     */
     private boolean existeColumna(Connection conn, String tabla, String columna) throws SQLException {
         try (Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery("PRAGMA table_info(" + tabla + ")")) {
@@ -336,6 +342,7 @@ public class DatabaseManager {
                 boolean vendida = rs.getInt("esta_vendida") == 1;
                 String comprador = rs.getString("comprador");
 
+                // La presencia de filas en las tablas especializadas define la clase concreta a instanciar.
                 if (precioAlq != null && precioVta != null) {
                     // Es propiedad mixta
                     PropiedadAlquilerVenta p = new PropiedadAlquilerVenta(id, direccion, superficie, propietario, precioAlq, precioVta);
@@ -377,6 +384,7 @@ public class DatabaseManager {
                 int idPropietario = obtenerOCrearPropietario(conn, nombrePropietario);
                 int idPropiedad;
 
+                // Primero se inserta la fila base y luego las filas de especialización correspondientes.
                 String insPropiedad = "INSERT INTO propiedades (direccion, superficie, id_propietario) VALUES (?, ?, ?)";
                 try (PreparedStatement ps = conn.prepareStatement(insPropiedad, Statement.RETURN_GENERATED_KEYS)) {
                     ps.setString(1, direccion);
@@ -543,6 +551,9 @@ public class DatabaseManager {
         }
     }
 
+    /**
+     * Busca un cliente por nombre y lo crea si aún no existe.
+     */
     private int obtenerOCrearCliente(Connection conn, String nombre) throws SQLException {
         String query = "SELECT id_cliente FROM clientes WHERE nombre = ?";
         try (PreparedStatement ps = conn.prepareStatement(query)) {
@@ -570,6 +581,9 @@ public class DatabaseManager {
         throw new SQLException("No se pudo obtener ni crear el cliente.");
     }
 
+    /**
+     * Busca un propietario por nombre y lo crea si aún no existe.
+     */
     private int obtenerOCrearPropietario(Connection conn, String nombre) throws SQLException {
         String query = "SELECT id_propietario FROM propietarios WHERE nombre = ?";
         try (PreparedStatement ps = conn.prepareStatement(query)) {

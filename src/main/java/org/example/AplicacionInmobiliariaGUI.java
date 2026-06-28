@@ -28,7 +28,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
+/**
+ * Interfaz gráfica principal del sistema inmobiliario.
+ * Centraliza la interacción del usuario con las propiedades y delega la persistencia en DatabaseManager.
+ */
 public class AplicacionInmobiliariaGUI extends JFrame {
+    // Dependencias y estado de pantalla compartidos por los distintos eventos de la GUI.
     private final DatabaseManager databaseManager;
     private final NumberFormat formatoMoneda;
     private final List<Propiedad> propiedades;
@@ -40,6 +45,7 @@ public class AplicacionInmobiliariaGUI extends JFrame {
     private JButton botonVender;
 
     public static void main(String[] args) {
+        // Swing debe inicializarse en el Event Dispatch Thread para evitar problemas de concurrencia.
         SwingUtilities.invokeLater(() -> {
             try {
                 UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
@@ -61,6 +67,9 @@ public class AplicacionInmobiliariaGUI extends JFrame {
         cargarPropiedades();
     }
 
+    /**
+     * Arma la ventana principal y distribuye encabezado, acciones, tabla y panel de detalle.
+     */
     private void configurarVentana() {
         setTitle("Sistema de Gestion Inmobiliaria");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -84,6 +93,9 @@ public class AplicacionInmobiliariaGUI extends JFrame {
         setLocationRelativeTo(null);
     }
 
+    /**
+     * Crea el encabezado visual con el título del sistema.
+     */
     private JPanel crearEncabezado() {
         JPanel panel = new JPanel(new BorderLayout());
         panel.setBorder(BorderFactory.createEmptyBorder(14, 16, 8, 16));
@@ -99,6 +111,9 @@ public class AplicacionInmobiliariaGUI extends JFrame {
         return panel;
     }
 
+    /**
+     * Crea el panel lateral con las acciones disponibles para la propiedad seleccionada.
+     */
     private JPanel crearPanelAcciones() {
         JPanel panel = new JPanel(new GridBagLayout());
         panel.setBorder(BorderFactory.createCompoundBorder(
@@ -143,6 +158,9 @@ public class AplicacionInmobiliariaGUI extends JFrame {
         return panel;
     }
 
+    /**
+     * Agrega botones al panel de acciones reutilizando la misma configuración de layout.
+     */
     private void agregarBoton(JPanel panel, JButton boton, GridBagConstraints gbc, int fila) {
         boton.setPreferredSize(new Dimension(180, 34));
         gbc.gridy = fila;
@@ -150,6 +168,9 @@ public class AplicacionInmobiliariaGUI extends JFrame {
         panel.add(boton, gbc);
     }
 
+    /**
+     * Construye la tabla de propiedades y registra el listener que sincroniza selección, detalle y botones.
+     */
     private JScrollPane crearTablaPropiedades() {
         tablaPropiedades = new JTable(modeloTabla);
         tablaPropiedades.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
@@ -168,6 +189,9 @@ public class AplicacionInmobiliariaGUI extends JFrame {
         return scroll;
     }
 
+    /**
+     * Crea el área inferior donde se muestran los datos completos de la propiedad seleccionada.
+     */
     private JScrollPane crearPanelDetalle() {
         detallePropiedad = new JTextArea(4, 20);
         detallePropiedad.setEditable(false);
@@ -181,6 +205,9 @@ public class AplicacionInmobiliariaGUI extends JFrame {
         return scroll;
     }
 
+    /**
+     * Define el modelo de la tabla como no editable para que los cambios pasen por las acciones del sistema.
+     */
     private DefaultTableModel crearModeloTabla() {
         return new DefaultTableModel(
                 new Object[]{"ID", "Direccion", "Tipo", "Propietario", "Superficie", "Alquiler", "Estado alquiler", "Venta", "Estado venta"},
@@ -193,6 +220,9 @@ public class AplicacionInmobiliariaGUI extends JFrame {
         };
     }
 
+    /**
+     * Recarga las propiedades desde la base de datos y actualiza la tabla visible.
+     */
     private void cargarPropiedades() {
         propiedades.clear();
         propiedades.addAll(databaseManager.obtenerTodasLasPropiedades());
@@ -220,6 +250,10 @@ public class AplicacionInmobiliariaGUI extends JFrame {
         actualizarEstadoBotones();
     }
 
+    /**
+     * Obtiene la propiedad seleccionada, convirtiendo el índice de la vista al índice del modelo.
+     * Esta conversión es necesaria porque la tabla permite ordenar columnas.
+     */
     private Propiedad obtenerPropiedadSeleccionada() {
         int filaVista = tablaPropiedades.getSelectedRow();
         if (filaVista < 0) {
@@ -232,11 +266,17 @@ public class AplicacionInmobiliariaGUI extends JFrame {
         return propiedades.get(filaModelo);
     }
 
+    /**
+     * Muestra los detalles generales de la propiedad actualmente seleccionada.
+     */
     private void actualizarDetalle() {
         Propiedad propiedad = obtenerPropiedadSeleccionada();
         detallePropiedad.setText(propiedad == null ? "Seleccione una propiedad." : propiedad.getDetallesGenerales());
     }
 
+    /**
+     * Habilita o deshabilita acciones según las interfaces que implemente la propiedad y su estado actual.
+     */
     private void actualizarEstadoBotones() {
         Propiedad propiedad = obtenerPropiedadSeleccionada();
         boolean esAlquilable = propiedad instanceof Alquilable;
@@ -247,6 +287,9 @@ public class AplicacionInmobiliariaGUI extends JFrame {
         botonVender.setEnabled(esVendible && !((Vendible) propiedad).estaVendida());
     }
 
+    /**
+     * Abre el formulario de alta y registra una propiedad de alquiler, venta o mixta.
+     */
     private void crearPropiedad() {
         JTextField campoDireccion = new JTextField(24);
         JTextField campoPropietario = new JTextField(24);
@@ -300,12 +343,18 @@ public class AplicacionInmobiliariaGUI extends JFrame {
         }
     }
 
+    /**
+     * Activa únicamente los campos de precio que corresponden al tipo de propiedad elegido.
+     */
     private void actualizarCamposPrecio(JComboBox<String> campoTipo, JSpinner campoPrecioAlquiler, JSpinner campoPrecioVenta) {
         String tipo = (String) campoTipo.getSelectedItem();
         campoPrecioAlquiler.setEnabled("Alquiler".equals(tipo) || "Mixta".equals(tipo));
         campoPrecioVenta.setEnabled("Venta".equals(tipo) || "Mixta".equals(tipo));
     }
 
+    /**
+     * Selecciona en la tabla la propiedad recién creada o actualizada.
+     */
     private void seleccionarPropiedadPorId(int idPropiedad) {
         for (int filaModelo = 0; filaModelo < propiedades.size(); filaModelo++) {
             if (propiedades.get(filaModelo).getId() == idPropiedad) {
@@ -317,6 +366,9 @@ public class AplicacionInmobiliariaGUI extends JFrame {
         }
     }
 
+    /**
+     * Solicita los datos del contrato y registra el alquiler de la propiedad seleccionada.
+     */
     private void alquilarSeleccionada() {
         Propiedad propiedad = obtenerPropiedadSeleccionada();
         if (!(propiedad instanceof Alquilable)) {
@@ -354,6 +406,9 @@ public class AplicacionInmobiliariaGUI extends JFrame {
         }
     }
 
+    /**
+     * Confirma y registra la rescisión del alquiler activo de la propiedad seleccionada.
+     */
     private void rescindirSeleccionada() {
         Propiedad propiedad = obtenerPropiedadSeleccionada();
         if (!(propiedad instanceof Alquilable)) {
@@ -383,6 +438,9 @@ public class AplicacionInmobiliariaGUI extends JFrame {
         }
     }
 
+    /**
+     * Solicita el comprador y registra la venta de la propiedad seleccionada.
+     */
     private void venderSeleccionada() {
         Propiedad propiedad = obtenerPropiedadSeleccionada();
         if (!(propiedad instanceof Vendible)) {
@@ -417,6 +475,9 @@ public class AplicacionInmobiliariaGUI extends JFrame {
         }
     }
 
+    /**
+     * Genera formularios simples para diálogos de Swing a partir de etiquetas y componentes.
+     */
     private JPanel crearFormulario(Object[][] campos) {
         JPanel panel = new JPanel(new GridBagLayout());
         GridBagConstraints gbc = new GridBagConstraints();
@@ -437,6 +498,9 @@ public class AplicacionInmobiliariaGUI extends JFrame {
         return panel;
     }
 
+    /**
+     * Muestra el historial consolidado de propietarios, alquileres y ventas.
+     */
     private void mostrarHistorial() {
         JTextArea historial = new JTextArea(databaseManager.obtenerHistorialComoTexto(), 22, 80);
         historial.setEditable(false);
@@ -444,6 +508,9 @@ public class AplicacionInmobiliariaGUI extends JFrame {
         JOptionPane.showMessageDialog(this, new JScrollPane(historial), "Historial", JOptionPane.INFORMATION_MESSAGE);
     }
 
+    /**
+     * Traduce las interfaces implementadas por la propiedad a un tipo legible para la tabla.
+     */
     private String obtenerTipo(Propiedad propiedad) {
         if (propiedad instanceof Alquilable && propiedad instanceof Vendible) {
             return "Mixta";
@@ -457,6 +524,9 @@ public class AplicacionInmobiliariaGUI extends JFrame {
         return "General";
     }
 
+    /**
+     * Devuelve el precio de alquiler formateado o un guion si la propiedad no se alquila.
+     */
     private String obtenerPrecioAlquiler(Propiedad propiedad) {
         if (propiedad instanceof Alquilable) {
             return formatoMoneda.format(((Alquilable) propiedad).getPrecioAlquiler());
@@ -464,6 +534,9 @@ public class AplicacionInmobiliariaGUI extends JFrame {
         return "-";
     }
 
+    /**
+     * Devuelve el estado de alquiler para mostrarlo en la tabla.
+     */
     private String obtenerEstadoAlquiler(Propiedad propiedad) {
         if (!(propiedad instanceof Alquilable)) {
             return "No aplica";
@@ -472,6 +545,9 @@ public class AplicacionInmobiliariaGUI extends JFrame {
         return alquilable.estaAlquilada() ? "Alquilada a " + alquilable.getInquilino() : "Disponible";
     }
 
+    /**
+     * Devuelve el precio de venta formateado o un guion si la propiedad no se vende.
+     */
     private String obtenerPrecioVenta(Propiedad propiedad) {
         if (propiedad instanceof Vendible) {
             return formatoMoneda.format(((Vendible) propiedad).getPrecioVenta());
@@ -479,6 +555,9 @@ public class AplicacionInmobiliariaGUI extends JFrame {
         return "-";
     }
 
+    /**
+     * Devuelve el estado de venta para mostrarlo en la tabla.
+     */
     private String obtenerEstadoVenta(Propiedad propiedad) {
         if (!(propiedad instanceof Vendible)) {
             return "No aplica";
@@ -487,10 +566,16 @@ public class AplicacionInmobiliariaGUI extends JFrame {
         return vendible.estaVendida() ? "Vendida a " + vendible.getComprador() : "Disponible";
     }
 
+    /**
+     * Muestra un mensaje informativo reutilizable para operaciones exitosas.
+     */
     private void mostrarMensaje(String mensaje) {
         JOptionPane.showMessageDialog(this, mensaje, "Operacion completada", JOptionPane.INFORMATION_MESSAGE);
     }
 
+    /**
+     * Muestra errores de validación o persistencia al usuario.
+     */
     private void mostrarError(String mensaje) {
         JOptionPane.showMessageDialog(this, mensaje, "Error", JOptionPane.ERROR_MESSAGE);
     }

@@ -12,6 +12,9 @@ public class PropiedadAlquilerVenta extends Propiedad implements Alquilable, Ven
     private boolean vendida;
     private String comprador;
 
+    /**
+     * Crea una propiedad mixta, disponible tanto para alquiler como para venta.
+     */
     public PropiedadAlquilerVenta(int id, String direccion, double superficie, String propietario, 
                                   double precioAlquiler, double precioVenta) {
         super(id, direccion, superficie, propietario);
@@ -31,9 +34,11 @@ public class PropiedadAlquilerVenta extends Propiedad implements Alquilable, Ven
 
     @Override
     public void alquilar(String inquilino, int mesesContrato) {
+        // Una propiedad mixta vendida ya no puede iniciar nuevos alquileres desde la inmobiliaria anterior.
         if (this.vendida) {
             throw new IllegalStateException("No se puede alquilar una propiedad que ya fue vendida.");
         }
+        // También se evita superponer contratos activos sobre la misma propiedad.
         if (this.alquilada) {
             throw new IllegalStateException("La propiedad ya se encuentra alquilada a " + this.inquilino);
         }
@@ -74,6 +79,7 @@ public class PropiedadAlquilerVenta extends Propiedad implements Alquilable, Ven
 
     @Override
     public void vender(String comprador) {
+        // La venta se registra una sola vez y transfiere la titularidad al comprador.
         if (this.vendida) {
             throw new IllegalStateException("La propiedad ya se encuentra vendida a " + this.comprador);
         }
